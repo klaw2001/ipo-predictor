@@ -1,14 +1,21 @@
 import { MetadataRoute } from 'next'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-  const ipos = await prisma.iPO.findMany({
-    select: { slug: true, updatedAt: true },
-    orderBy: { updatedAt: 'desc' },
-    take: 1000,
-  })
+  let ipos: { slug: string; updatedAt: Date }[] = []
+  try {
+    ipos = await prisma.iPO.findMany({
+      select: { slug: true, updatedAt: true },
+      orderBy: { updatedAt: 'desc' },
+      take: 1000,
+    })
+  } catch {
+    // DB not available at build time — return static routes only
+  }
 
   return [
     { url: baseUrl, lastModified: new Date(), changeFrequency: 'hourly', priority: 1 },
