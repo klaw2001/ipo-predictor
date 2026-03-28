@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model IPO {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  category        String   // SME | MAINBOARD
+  status          String   // UPCOMING | OPEN | CLOSED | LISTED
+  sector          String   @default("Other")
+  issuerCompany   String
+  exchange        String   @default("BOTH") // NSE | BSE | BOTH
+
+  // Price details
+  priceBandLow    Float?
+  priceBandHigh   Float?
+  issueSize       Float?   // in INR crores
+  lotSize         Int?
+  freshIssue      Float?   // crores
+  ofs             Float?   // offer for sale crores
+
+  // Dates
+  openDate        DateTime?
+  closeDate       DateTime?
+  allotmentDate   DateTime?
+  listingDate     DateTime?
+
+  // Financials
+  revenue         Float?   // crores, last fiscal year
+  netProfit       Float?   // crores
+  peRatio         Float?
+  roe             Float?
+  roce            Float?
+  debtToEquity    Float?
+
+  // Additional metadata
+  registrar       String?
+  leadManagers    String[]
+  objectives      String?   // use of proceeds
+  promoterHolding Float?    // pre-IPO %
+  drhpUrl         String?
+  rhpUrl          String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  subscriptions   IPOSubscription[]
+  gmpHistory      IPOGmp[]
+  predictions     IPOPrediction[]
+  result          IPOResult?
+
+  @@index([status])
+  @@index([listingDate])
+  @@index([sector])
+  @@index([category])
+}
+
+model IPOSubscription {
+  id            String   @id @default(cuid())
+  ipoId         String
+  ipo           IPO      @relation(fields: [ipoId], references: [id], onDelete: Cascade)
+  scrapedAt     DateTime @default(now())
+  day           Int      // 1, 2, 3 (subscription day)
+
+  qibTimes      Float?   // Qualified Institutional Buyers
+  hniTimes      Float?   // High Net-worth Individuals (NII)
+  retailTimes   Float?
+  totalTimes    Float?
+  employeeTimes Float?   // if applicable
+  applications  Int?     // total application count
+
+  source        String   // BSE | NSE | CHITTORGARH
+
+  @@index([ipoId, scrapedAt])
+}
+
+model IPOGmp {
+  id         String   @id @default(cuid())
+  ipoId      String
+  ipo        IPO      @relation(fields: [ipoId], references: [id], onDelete: Cascade)
+  scrapedAt  DateTime @default(now())
+
+  gmpAmount  Float    // absolute INR amount above issue price (can be negative)
+  gmpPercent Float    // (gmpAmount / issuePriceHigh) * 100
+  kostak     Float?   // application premium in INR
+  subject    Float?   // sauda premium
+
+  source     String   @default("investorgain.com")
+
+  @@index([ipoId, scrapedAt])
+}
+
+model IPOPrediction {
+  id          String   @id @default(cuid())
+  ipoId       String
+  ipo         IPO      @relation(fields: [ipoId], references: [id], onDelete: Cascade)
+  predictedAt DateTime @default(now())
+
+  score       Float    // 0-100
+  label       String   // STRONG_POSITIVE | POSITIVE | NEUTRAL | CAUTIOUS | STRONG_CAUTION
+  confidence  Float    // 0-1, model confidence
+
+  // Signal sub-scores for breakdown display
+  gmpSignal          Float?
+  subscriptionSignal Float?
+  marketSignal       Float?
+  fundamentalSignal  Float?
+  sectorSignal       Float?
+
+  // Raw feature snapshot for auditability & retraining
+  featuresJson  Json
+  modelVersion  String   @default("1.0.0")
+
+  disclaimer    String   @default("This is an AI-based educational tool. Not SEBI-registered investment advice.")
+
+  @@index([ipoId, predictedAt])
+}
+
+model IPOResult {
+  id            String   @id @default(cuid())
+  ipoId         String   @unique
+  ipo           IPO      @relation(fields: [ipoId], references: [id], onDelete: Cascade)
+
+  listingPrice  Float
+  listingGain   Float    // percent gain over issue price (can be negative)
+  dayHigh       Float?
+  dayLow        Float?
+  closeD1       Float?   // close price day 1
+  closeW1       Float?   // close price week 1
+
+  actualLabel   String?  // actual outcome label (for retraining accuracy stats)
+  scrapedAt     DateTime @default(now())
+}
+
+model MarketContext {
+  id            String   @id @default(cuid())
+  scrapedAt     DateTime @default(now())
+
+  nifty50       Float
+  nifty50Chg    Float    // percent change
+  bankNifty     Float
+  bankNiftyChg  Float
+  vix           Float
+
+  marketStatus  String   // OPEN | CLOSED | PRE_OPEN
+
+  @@index([scrapedAt])
+}

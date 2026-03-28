@@ -1,0 +1,83 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ipo_postgres
+    environment:
+      POSTGRES_DB: ipo_db
+      POSTGRES_USER: ipo_user
+      POSTGRES_PASSWORD: ipo_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ipo_user -d ipo_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    container_name: ipo_ml
+    environment:
+      ML_API_KEY: ${ML_SERVICE_API_KEY:-change-me-ml-secret}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ml_models:/app/model
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  nextjs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ipo_web
+    environment:
+      DATABASE_URL: postgresql://ipo_user:ipo_pass@postgres:5432/ipo_db
+      ML_SERVICE_URL: http://ml-service:8000
+      ML_SERVICE_API_KEY: ${ML_SERVICE_API_KEY:-change-me-ml-secret}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-change-me-admin-secret}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      TZ: Asia/Kolkata
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ml-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ipo_scheduler
+    command: ["npx", "tsx", "scripts/scheduler.ts"]
+    environment:
+      DATABASE_URL: postgresql://ipo_user:ipo_pass@postgres:5432/ipo_db
+      ML_SERVICE_URL: http://ml-service:8000
+      ML_SERVICE_API_KEY: ${ML_SERVICE_API_KEY:-change-me-ml-secret}
+      TZ: Asia/Kolkata
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ml-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  ml_models:

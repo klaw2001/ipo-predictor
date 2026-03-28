@@ -27,6 +27,17 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
+
+# Python virtualenv
+ml-service/venv/
+ml-service/.venv/
+__pycache__/
+*.pyc
+ml-service/model/*.pkl
+
+# Scraper debug HTML
+/tmp/*.html
 
 # vercel
 .vercel
