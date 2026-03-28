@@ -41,11 +41,11 @@ services:
       dockerfile: Dockerfile
     container_name: ipo_web
     environment:
-      DATABASE_URL: postgresql://ipo_user:ipo_pass@postgres:5432/ipo_db
+      DATABASE_URL: ${DATABASE_URL}
       ML_SERVICE_URL: http://ml-service:8000
       ML_SERVICE_API_KEY: ${ML_SERVICE_API_KEY:-change-me-ml-secret}
       ADMIN_API_KEY: ${ADMIN_API_KEY:-change-me-admin-secret}
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_URL: https://ipopredictor.in
       TZ: Asia/Kolkata
       NODE_ENV: production
     ports:
@@ -64,7 +64,7 @@ services:
     container_name: ipo_scheduler
     command: ["npx", "tsx", "scripts/scheduler.ts"]
     environment:
-      DATABASE_URL: postgresql://ipo_user:ipo_pass@postgres:5432/ipo_db
+      DATABASE_URL: ${DATABASE_URL}
       ML_SERVICE_URL: http://ml-service:8000
       ML_SERVICE_API_KEY: ${ML_SERVICE_API_KEY:-change-me-ml-secret}
       TZ: Asia/Kolkata
